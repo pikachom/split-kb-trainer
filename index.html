@@ -562,7 +562,25 @@ const FINGER_R = ['index', 'index', 'middle', 'ring', 'pinky'];
 
 let currentLayer = 'base';
 
-function makeKey(k, fingerClass, highlightKey) {
+// Returns true if typing `ch` on `layerName` requires Shift
+function computeNeedsShift(layerName, ch) {
+  if (!ch) return false;
+  // Uppercase letter always needs shift
+  if (/^[A-Z]$/.test(ch)) return true;
+  // Check if ch appears as a shift-label (s) in any key on this layer
+  const layer = LAYERS[layerName];
+  const allKeys = [
+    ...layer.left.flat(),
+    layer.leftOuter,
+    ...layer.leftThumb,
+    ...layer.right.flat(),
+    layer.rightOuter,
+    ...layer.rightThumb,
+  ].filter(Boolean);
+  return allKeys.some(k => k.s && k.s === ch);
+}
+
+function makeKey(k, fingerClass, highlightKey, needsShift) {
   if (!k) k = {m:''};
   const el = document.createElement('div');
   const isEmpty = !k.m && !k.s && !k.h;
@@ -574,9 +592,14 @@ function makeKey(k, fingerClass, highlightKey) {
   if (k.outer)   cls += ' outer';
   if (fingerClass && !isEmpty) cls += ` finger-${fingerClass}`;
 
-  if (highlightKey && k.m && k.m.toLowerCase() === highlightKey.toLowerCase()) {
-    cls += ' highlight';
+  if (highlightKey && k.m) {
+    // Highlight if main label matches (case-insensitive) OR shift-label matches exactly
+    const mainMatch  = k.m.toLowerCase() === highlightKey.toLowerCase();
+    const shiftMatch = k.s && k.s === highlightKey;
+    if (mainMatch || shiftMatch) cls += ' highlight';
   }
+  // Highlight the Shift key when the target character requires shift
+  if (needsShift && k.mod && k.m === '⇧') cls += ' highlight';
 
   el.className = cls;
   el.innerHTML =
@@ -595,6 +618,9 @@ function renderKeyboard(layer, highlightKey) {
   const KEY_H = 42, KEY_GAP = 5;
   // outer key aligns with row-2 of the pinky column
   const outerStagger = STAGGER_L[0] + 2 * (KEY_H + KEY_GAP); // 27 + 94 = 121px
+
+  // Determine whether the target char requires the Shift key to be held
+  const needsShift = highlightKey ? computeNeedsShift(layer, highlightKey) : false;
 
   ['left', 'right'].forEach(side => {
     const isLeft = side === 'left';
@@ -620,23 +646,23 @@ function renderKeyboard(layer, highlightKey) {
         if (c === 0) {
           // outer key (SHIFT): single key, aligned to row 2
           colDiv.style.marginTop = outerStagger + 'px';
-          colDiv.appendChild(makeKey(outerKey, 'pinky', highlightKey));
+          colDiv.appendChild(makeKey(outerKey, 'pinky', highlightKey, needsShift));
         } else {
           // main cols: c-1 maps to rows[row][c-1]
           colDiv.style.marginTop = stagger[c - 1] + 'px';
           for (let r = 0; r < rows.length; r++) {
-            colDiv.appendChild(makeKey(rows[r][c - 1], fingers[c - 1], highlightKey));
+            colDiv.appendChild(makeKey(rows[r][c - 1], fingers[c - 1], highlightKey, needsShift));
           }
         }
       } else {
         // right hand: cols 0-4 are main, col 5 is outer (')
         if (c === 5) {
           colDiv.style.marginTop = outerStagger + 'px';
-          colDiv.appendChild(makeKey(outerKey, 'pinky', highlightKey));
+          colDiv.appendChild(makeKey(outerKey, 'pinky', highlightKey, needsShift));
         } else {
           colDiv.style.marginTop = stagger[c] + 'px';
           for (let r = 0; r < rows.length; r++) {
-            colDiv.appendChild(makeKey(rows[r][c], fingers[c], highlightKey));
+            colDiv.appendChild(makeKey(rows[r][c], fingers[c], highlightKey, needsShift));
           }
         }
       }
@@ -649,7 +675,7 @@ function renderKeyboard(layer, highlightKey) {
     // ── thumb cluster ──
     const thumbDiv = document.createElement('div');
     thumbDiv.className = 'thumb-row' + (isLeft ? '' : ' right');
-    thumbKeys.forEach(k => thumbDiv.appendChild(makeKey(k, 'thumb', highlightKey)));
+    thumbKeys.forEach(k => thumbDiv.appendChild(makeKey(k, 'thumb', highlightKey, needsShift)));
     handDiv.appendChild(thumbDiv);
 
     kb.appendChild(handDiv);
@@ -3085,6 +3111,7 @@ let totalChars = 0;
 let totalErrors = 0;
 let sessionActive = false;
 let composing = false;
+let justAdvanced = false;  // blocks stray IME events after line advance
 
 function setMode(m) {
   mode = m;
@@ -3189,6 +3216,8 @@ function handleInput(e) {
 
 function handleKeydown(e) {
   if (e.key === 'Enter') {
+    // Don't process Enter while IME is composing — let compositionend handle it
+    if (composing || e.isComposing) { e.preventDefault(); return; }
     const val = e.target.value;
     let correct = 0;
     for (let i = 0; i < Math.min(val.length, currentText.length); i++) {
@@ -3204,9 +3233,12 @@ function handleKeydown(e) {
 }
 
 function nextLine() {
+  // Set guard BEFORE clearing so any stray compositionend/input is blocked
+  justAdvanced = true;
   lineIdx++;
   typed = '';
-  document.getElementById('typing-input').value = '';
+  const inp = document.getElementById('typing-input');
+  inp.value = '';
 
   if (lineIdx >= lines.length) {
     clearInterval(timerInterval);
@@ -3218,9 +3250,16 @@ function nextLine() {
     document.getElementById('finish-modal').classList.add('show');
     lines = shuffleArray(TEXTS[mode]);
     lineIdx = 0;
+    justAdvanced = false;
     return;
   }
   loadLine();
+  // Release the guard after the current event cycle; catches stray IME carry-over
+  requestAnimationFrame(() => {
+    inp.value = '';
+    typed = '';
+    justAdvanced = false;
+  });
 }
 
 function closeModal() {
@@ -3266,9 +3305,19 @@ function updateErrorHeatmap() {
 function initInput() {
   const inp = document.getElementById('typing-input');
   inp.addEventListener('compositionstart', () => { composing = true; });
-  inp.addEventListener('compositionend',   (e) => { composing = false; handleInput(e); });
-  inp.addEventListener('input',            (e) => { if (!composing) handleInput(e); });
-  inp.addEventListener('keydown',          handleKeydown);
+  inp.addEventListener('compositionend', (e) => {
+    composing = false;
+    if (justAdvanced) {
+      // Discard any character the IME tried to commit into the freshly-cleared input
+      e.target.value = '';
+      return;
+    }
+    handleInput(e);
+  });
+  inp.addEventListener('input', (e) => {
+    if (!composing && !justAdvanced) handleInput(e);
+  });
+  inp.addEventListener('keydown', handleKeydown);
 }
 
 /* ═══════════════════════════════════════════════════════════
