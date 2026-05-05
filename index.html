@@ -185,6 +185,12 @@
   .key.highlight .main, .key.highlight .hold, .key.highlight .shift { color: #fff; }
   .key.key-correct { background: var(--green); border-color: var(--green); }
   .key.key-incorrect { background: var(--red); border-color: var(--red); }
+  .key.key-hold-thumb {
+    background: #ff9f1c;
+    border: 2px dashed #ff9f1c;
+    box-shadow: 0 0 10px rgba(255,159,28,0.55);
+  }
+  .key.key-hold-thumb .main, .key.key-hold-thumb .hold, .key.key-hold-thumb .shift { color: #fff; }
 
   /* ── Practice Section ── */
   #practice-section {
@@ -435,7 +441,8 @@
   <div class="history-header">
     <div class="history-title">📅 연습 기록 (최근 16주)</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <span class="calendar-summary" id="week-summary">이번 주 0분 연습</span>
+      <span class="calendar-summary" id="week-summary">이번 주 0문장 완료</span>
+      <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="connectHistoryFile()">📂 파일 연결</button>
       <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="exportHistory()">⬇ 내보내기</button>
     </div>
   </div>
@@ -449,9 +456,9 @@
       <div class="cal-legend-cell" style="background:#1a6640"></div>
       <div class="cal-legend-cell" style="background:#27a85a"></div>
       <div class="cal-legend-cell" style="background:#35d473"></div>
-      <span>많음 (0 / 1-5 / 6-15 / 16+분)</span>
+      <span>많음 (0 / 1-3 / 4-10 / 11+문장)</span>
     </div>
-    <span style="font-size:0.7rem;color:var(--text2)">localStorage 저장 · ⬇ 버튼으로 JSON 내보내기</span>
+    <span style="font-size:0.7rem;color:var(--text2)">localStorage 저장 · 📂 파일 연결 후 자동저장 (FSA API)</span>
   </div>
 </div>
 <div id="cal-tooltip"></div>
@@ -566,7 +573,7 @@ const LAYERS = {
     right: [
       [ {m:'6'}, {m:'7'}, {m:'8'}, {m:'9'},          {m:'0'} ],
       [ {m:'[', s:'{'}, {m:']', s:'}'}, {m:''}, {m:''}, {m:'\\', s:'|'} ],
-      [ {m:'(', s:'<'}, {m:')', s:'>'}, {m:','}, {m:'.'}, {m:'/'} ],
+      [ {m:'('}, {m:')'}, {m:',', s:'<'}, {m:'.', s:'>'}, {m:'/'} ],
     ],
     rightOuter: { m:'⇧', mod:true, outer:true },
     rightThumb: [
@@ -635,7 +642,7 @@ function computeNeedsShift(layerName, ch) {
   return allKeys.some(k => k.s && k.s === ch);
 }
 
-function makeKey(k, fingerClass, highlightKey, needsShift) {
+function makeKey(k, fingerClass, highlightKey, needsShift, holdThumb) {
   if (!k) k = {m:''};
   const el = document.createElement('div');
   const isEmpty = !k.m && !k.s && !k.h;
@@ -647,14 +654,16 @@ function makeKey(k, fingerClass, highlightKey, needsShift) {
   if (k.outer)   cls += ' outer';
   if (fingerClass && !isEmpty) cls += ` finger-${fingerClass}`;
 
-  if (highlightKey && k.m) {
+  if (!holdThumb && highlightKey && k.m) {
     // Highlight if main label matches (case-insensitive) OR shift-label matches exactly
     const mainMatch  = k.m.toLowerCase() === highlightKey.toLowerCase();
     const shiftMatch = k.s && k.s === highlightKey;
     if (mainMatch || shiftMatch) cls += ' highlight';
   }
   // Highlight the Shift key when the target character requires shift
-  if (needsShift && k.mod && k.m === '⇧') cls += ' highlight';
+  if (!holdThumb && needsShift && k.mod && k.m === '⇧') cls += ' highlight';
+  // Highlight thumb hold key (layer activation key) with distinct orange style
+  if (holdThumb) cls += ' key-hold-thumb';
 
   el.className = cls;
   el.innerHTML =
@@ -676,6 +685,13 @@ function renderKeyboard(layer, highlightKey) {
 
   // Determine whether the target char requires the Shift key to be held
   const needsShift = highlightKey ? computeNeedsShift(layer, highlightKey) : false;
+
+  // Determine which thumb key to highlight as "hold" (layer activation key)
+  let thumbHoldSide = null, thumbHoldIdx = -1;
+  if (highlightKey) {
+    if (layer === 'num_sym') { thumbHoldSide = 'right'; thumbHoldIdx = 0; }
+    if (layer === 'nav')     { thumbHoldSide = 'left';  thumbHoldIdx = 2; }
+  }
 
   ['left', 'right'].forEach(side => {
     const isLeft = side === 'left';
@@ -730,7 +746,10 @@ function renderKeyboard(layer, highlightKey) {
     // ── thumb cluster ──
     const thumbDiv = document.createElement('div');
     thumbDiv.className = 'thumb-row' + (isLeft ? '' : ' right');
-    thumbKeys.forEach(k => thumbDiv.appendChild(makeKey(k, 'thumb', highlightKey, needsShift)));
+    thumbKeys.forEach((k, ti) => {
+      const isHoldThumb = thumbHoldSide === (isLeft ? 'left' : 'right') && thumbHoldIdx === ti;
+      thumbDiv.appendChild(makeKey(k, 'thumb', highlightKey, needsShift, isHoldThumb));
+    });
     handDiv.appendChild(thumbDiv);
 
     kb.appendChild(handDiv);
@@ -3191,6 +3210,7 @@ let totalErrors = 0;
 let sessionActive = false;
 let composing = false;
 let justAdvanced = false;  // blocks stray IME events after line advance
+let historyFileHandle = null;
 
 function setMode(m) {
   mode = m;
@@ -3215,11 +3235,9 @@ function resetSession() {
   // Record partial session if the user practiced ≥1 minute before resetting
   if (sessionActive && startTime && totalChars > 0) {
     const elapsed = (Date.now() - startTime) / 1000;
-    if (elapsed >= 60) {
-      const wpm = Math.round((totalChars / 5) / (elapsed / 60));
-      const acc = Math.round(((totalChars - totalErrors) / totalChars) * 100);
-      recordSession(wpm, acc, elapsed / 60);
-    }
+    const wpm = Math.round((totalChars / 5) / (elapsed / 60));
+    const acc = Math.round(((totalChars - totalErrors) / totalChars) * 100);
+    recordSession(wpm, acc);
   }
   clearInterval(timerInterval);
   lines       = shuffleArray(TEXTS[mode]);
@@ -3294,6 +3312,7 @@ function handleInput(e) {
       if (val[i] !== currentText[i]) totalErrors++;
     }
     inp.value = '';
+    recordSentence();
     nextLine();
   } else if (val.length > currentText.length) {
     inp.value = val.slice(0, currentText.length);
@@ -3312,6 +3331,7 @@ function handleKeydown(e) {
     if (correct >= currentText.length * 0.8) {
       totalChars += correct;
       e.target.value = '';
+      recordSentence();
       nextLine();
       e.preventDefault();
     }
@@ -3334,7 +3354,7 @@ function nextLine() {
     document.getElementById('modal-wpm').textContent = wpm;
     document.getElementById('modal-acc').textContent = acc + '%';
     document.getElementById('finish-modal').classList.add('show');
-    recordSession(wpm, acc, elapsed / 60);
+    recordSession(wpm, acc);
     lines = shuffleArray(TEXTS[mode]);
     lineIdx = 0;
     justAdvanced = false;
@@ -3373,45 +3393,118 @@ function updateStats(wpm, acc, time, errs) {
    ─────────────────────────────────────────────────────────── */
 
 function loadHistory() {
-  try { return JSON.parse(localStorage.getItem('totem-history') || '{}'); }
-  catch { return {}; }
+  try {
+    const raw = JSON.parse(localStorage.getItem('totem-history') || '{}');
+    for (const key of Object.keys(raw)) {
+      if (raw[key] && raw[key].sentences === undefined) raw[key].sentences = 0;
+    }
+    return raw;
+  } catch { return {}; }
 }
 
 function saveHistory(data) {
   localStorage.setItem('totem-history', JSON.stringify(data));
 }
 
-function recordSession(wpm, accuracy, minutes) {
-  if (minutes < 0.08) return; // ignore sessions under ~5 seconds
+function recordSentence() {
   const history = loadHistory();
   const today = new Date().toISOString().split('T')[0];
-  const prev = history[today] || { minutes: 0, sessions: 0, wpm: 0, accuracy: 0 };
-  const sessions = prev.sessions + 1;
+  const prev = history[today] || { sentences: 0, sessions: 0, wpm: 0, accuracy: 0 };
+  history[today] = { ...prev, sentences: (prev.sentences || 0) + 1 };
+  saveHistory(history);
+  renderCalendar();
+  if (historyFileHandle) _writeToFileHandle();
+}
+
+function recordSession(wpm, accuracy) {
+  const history = loadHistory();
+  const today = new Date().toISOString().split('T')[0];
+  if (!history[today] || !(history[today].sentences > 0)) return;
+  const prev = history[today];
+  const sessions = (prev.sessions || 0) + 1;
   history[today] = {
-    minutes: Math.round((prev.minutes + minutes) * 10) / 10,
+    ...prev,
     sessions,
-    wpm: Math.round((prev.wpm * prev.sessions + wpm) / sessions),
-    accuracy: Math.round((prev.accuracy * prev.sessions + accuracy) / sessions),
+    wpm: Math.round(((prev.wpm || 0) * (prev.sessions || 0) + wpm) / sessions),
+    accuracy: Math.round(((prev.accuracy || 0) * (prev.sessions || 0) + accuracy) / sessions),
   };
   saveHistory(history);
   renderCalendar();
+  if (historyFileHandle) _writeToFileHandle();
 }
 
-function exportHistory() {
-  const data = loadHistory();
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'totem-history.json';
-  a.click();
-  URL.revokeObjectURL(url);
+async function _writeToFileHandle() {
+  if (!historyFileHandle) return;
+  try {
+    const writable = await historyFileHandle.createWritable();
+    await writable.write(JSON.stringify(loadHistory(), null, 2));
+    await writable.close();
+  } catch (e) {
+    console.error('Auto-save failed:', e);
+    historyFileHandle = null;
+  }
 }
 
-function getCalColor(minutes) {
-  if (!minutes || minutes <= 0) return 'var(--surface2)';
-  if (minutes <= 5)  return '#1a6640';
-  if (minutes <= 15) return '#27a85a';
+async function exportHistory() {
+  const json = JSON.stringify(loadHistory(), null, 2);
+  if ('showSaveFilePicker' in window) {
+    try {
+      historyFileHandle = await window.showSaveFilePicker({
+        suggestedName: 'history.json',
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      await _writeToFileHandle();
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error(e);
+    }
+  } else {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'history.json'; a.click();
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function connectHistoryFile() {
+  if (!('showOpenFilePicker' in window)) {
+    alert('이 브라우저는 File System Access API를 지원하지 않습니다. Chrome을 사용해주세요.');
+    return;
+  }
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+    });
+    historyFileHandle = handle;
+    const file = await handle.getFile();
+    const incoming = JSON.parse(await file.text());
+    const current = loadHistory();
+    const merged = { ...incoming };
+    for (const key of Object.keys(incoming)) {
+      if (incoming[key] && incoming[key].sentences === undefined) incoming[key].sentences = 0;
+    }
+    for (const key of Object.keys(current)) {
+      if (!merged[key]) { merged[key] = current[key]; continue; }
+      const a = merged[key], b = current[key];
+      const sessions = (a.sessions || 0) + (b.sessions || 0);
+      merged[key] = {
+        sentences: (a.sentences || 0) + (b.sentences || 0),
+        sessions: sessions || 1,
+        wpm: sessions > 0 ? Math.round(((a.wpm||0)*(a.sessions||0) + (b.wpm||0)*(b.sessions||0)) / sessions) : 0,
+        accuracy: sessions > 0 ? Math.round(((a.accuracy||0)*(a.sessions||0) + (b.accuracy||0)*(b.sessions||0)) / sessions) : 0,
+      };
+    }
+    saveHistory(merged);
+    renderCalendar();
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error(e);
+  }
+}
+
+function getCalColor(sentences) {
+  if (!sentences || sentences <= 0) return 'var(--surface2)';
+  if (sentences <= 3)  return '#1a6640';
+  if (sentences <= 10) return '#27a85a';
   return '#35d473';
 }
 
@@ -3457,10 +3550,10 @@ function renderCalendar() {
       if (day.future) {
         cell.style.opacity = '0.2';
       } else {
-        const mins = day.data ? day.data.minutes : 0;
-        cell.style.background = getCalColor(mins);
-        const tip = day.data
-          ? `${day.date} · ${day.data.minutes}분 · WPM ${day.data.wpm} · 정확도 ${day.data.accuracy}%`
+        const sents = day.data ? (day.data.sentences || 0) : 0;
+        cell.style.background = getCalColor(sents);
+        const tip = day.data && sents > 0
+          ? `${day.date} · ${sents}문장 · WPM ${day.data.wpm} · 정확도 ${day.data.accuracy}%`
           : `${day.date} · 연습 없음`;
         cell.setAttribute('data-tooltip', tip);
       }
@@ -3474,15 +3567,15 @@ function renderCalendar() {
 }
 
 function updateWeekSummary(history, today) {
-  let weekMins = 0;
+  let weekSents = 0;
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() - i);
     const key = d.toISOString().split('T')[0];
-    if (history[key]) weekMins += history[key].minutes;
+    if (history[key]) weekSents += (history[key].sentences || 0);
   }
   const el = document.getElementById('week-summary');
-  if (el) el.textContent = `이번 주 ${Math.round(weekMins)}분 연습`;
+  if (el) el.textContent = `이번 주 ${weekSents}문장 완료`;
 }
 
 function initCalendarTooltip() {
