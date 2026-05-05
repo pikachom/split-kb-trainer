@@ -286,8 +286,8 @@
   .progress-bar { height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 16px; overflow: hidden; }
   .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 2px; transition: width 0.2s; }
 
-  /* ── Error Heatmap ── */
-  #error-section {
+  /* ── Practice History Calendar ── */
+  #history-section {
     width: 100%;
     max-width: 900px;
     background: var(--surface);
@@ -295,16 +295,52 @@
     border-radius: var(--radius);
     padding: 16px;
   }
-  .error-title { font-size: 0.8rem; color: var(--text2); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
-  #error-list  { display: flex; flex-wrap: wrap; gap: 8px; }
-  .error-key   { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .error-key-char  {
-    width: 36px; height: 32px; border-radius: 4px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.9rem; font-weight: 700;
-    background: var(--red); color: #fff; opacity: 0.4;
+  .history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  .error-key-count { font-size: 0.65rem; color: var(--text2); }
+  .history-title { font-size: 0.8rem; color: var(--text2); letter-spacing: 0.08em; text-transform: uppercase; }
+  .calendar-summary { font-size: 0.82rem; color: var(--accent); font-weight: 600; }
+  .calendar-outer { overflow-x: auto; padding-bottom: 4px; }
+  .calendar-container { display: flex; gap: 3px; min-width: max-content; }
+  .calendar-col { display: flex; flex-direction: column; gap: 3px; }
+  .cal-cell {
+    width: 13px;
+    height: 13px;
+    border-radius: 2px;
+    background: var(--surface2);
+    transition: transform 0.1s;
+  }
+  .cal-cell[data-tooltip] { cursor: pointer; }
+  .cal-cell[data-tooltip]:hover { transform: scale(1.35); }
+  #cal-tooltip {
+    position: fixed;
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    color: var(--text);
+    pointer-events: none;
+    z-index: 200;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,.4);
+  }
+  .history-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .cal-legend { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: var(--text2); }
+  .cal-legend-cell { width: 11px; height: 11px; border-radius: 2px; }
 
   /* Finish Modal */
   #finish-modal {
@@ -362,7 +398,6 @@
       <div class="layer-tab active"  onclick="switchLayer('base')">BASE</div>
       <div class="layer-tab"         onclick="switchLayer('nav')">NAV</div>
       <div class="layer-tab"         onclick="switchLayer('num_sym')">NUM/SYM</div>
-      <div class="layer-tab"         onclick="switchLayer('device')">DEVICE</div>
     </div>
   </div>
   <div class="keyboard" id="kb-visual"></div>
@@ -395,11 +430,31 @@
   </div>
 </div>
 
-<!-- ══ ERROR HEATMAP ══ -->
-<div id="error-section">
-  <div class="error-title">❌ 오류 많은 키</div>
-  <div id="error-list"><span style="color:var(--text2);font-size:0.85rem">아직 오류 없음</span></div>
+<!-- ══ PRACTICE HISTORY ══ -->
+<div id="history-section">
+  <div class="history-header">
+    <div class="history-title">📅 연습 기록 (최근 16주)</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="calendar-summary" id="week-summary">이번 주 0분 연습</span>
+      <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="exportHistory()">⬇ 내보내기</button>
+    </div>
+  </div>
+  <div class="calendar-outer">
+    <div class="calendar-container" id="calendar-grid"></div>
+  </div>
+  <div class="history-footer">
+    <div class="cal-legend">
+      <span>없음</span>
+      <div class="cal-legend-cell" style="background:var(--surface2)"></div>
+      <div class="cal-legend-cell" style="background:#1a6640"></div>
+      <div class="cal-legend-cell" style="background:#27a85a"></div>
+      <div class="cal-legend-cell" style="background:#35d473"></div>
+      <span>많음 (0 / 1-5 / 6-15 / 16+분)</span>
+    </div>
+    <span style="font-size:0.7rem;color:var(--text2)">localStorage 저장 · ⬇ 버튼으로 JSON 내보내기</span>
+  </div>
 </div>
+<div id="cal-tooltip"></div>
 
 <!-- Finish Modal -->
 <div id="finish-modal">
@@ -424,7 +479,7 @@
 </div>
 
 <footer>
-  TOTEM 38-key · Base / NAV (LT1) / NUM+SYM (LT2) / DEVICE (LT1+LT2) · 한/영 IME 지원
+  TOTEM 38-key · BASE / NAV (hold TAB) / NUM+SYM (hold ENT) · DEVICE via Conditional Layer · 한/영 IME 지원
 </footer>
 
 <script>
@@ -465,7 +520,7 @@ const LAYERS = {
     rightThumb: [
       { m:'ENT',  h:'SYM', thumb:true },
       { m:'BSPC', mod:true, thumb:true },
-      { m:'CAPS', h:'DEV', thumb:true },
+      { m:'CAPS', h:'⇧', thumb:true },
     ],
   },
 
@@ -491,7 +546,7 @@ const LAYERS = {
     rightThumb: [
       { m:'ENT',  thumb:true },
       { m:'BSPC', mod:true, thumb:true },
-      { m:'CAPS', thumb:true },
+      { m:'CAPS', h:'⇧', thumb:true },
     ],
   },
 
@@ -517,7 +572,7 @@ const LAYERS = {
     rightThumb: [
       { m:'▼',   mod:true, thumb:true },
       { m:'BSPC', mod:true, thumb:true },
-      { m:'CAPS', thumb:true },
+      { m:'CAPS', h:'⇧', thumb:true },
     ],
   },
 
@@ -682,12 +737,37 @@ function renderKeyboard(layer, highlightKey) {
   });
 }
 
-function switchLayer(layer) {
+function switchLayer(layer, highlightKey) {
   document.querySelectorAll('.layer-tab').forEach(t => {
-    const map = {BASE:'base', NAV:'nav', 'NUM/SYM':'num_sym', DEVICE:'device'};
+    const map = {BASE:'base', NAV:'nav', 'NUM/SYM':'num_sym'};
     t.classList.toggle('active', map[t.textContent] === layer);
   });
-  renderKeyboard(layer);
+  renderKeyboard(layer, highlightKey);
+}
+
+// Maps a raw character to the key label used in the keymap (e.g. space → 'SPC')
+function getHighlightKey(ch) {
+  if (ch === ' ')  return 'SPC';
+  if (ch === '\t') return 'TAB';
+  return ch;
+}
+
+// Returns which layer to show for highlighting a given character
+function findCharLayer(ch) {
+  if (!ch || ch === ' ' || /^[a-zA-Z]$/.test(ch)) return 'base';
+  // Check base layer (non-letters that exist there: ; , . / ' etc.)
+  const baseKeys = [
+    ...LAYERS.base.left.flat(), LAYERS.base.leftOuter, ...LAYERS.base.leftThumb,
+    ...LAYERS.base.right.flat(), LAYERS.base.rightOuter, ...LAYERS.base.rightThumb,
+  ].filter(Boolean);
+  if (baseKeys.some(k => k.m === ch || k.s === ch)) return 'base';
+  // Check num_sym layer for digits and symbols
+  const nsKeys = [
+    ...LAYERS.num_sym.left.flat(), LAYERS.num_sym.leftOuter, ...LAYERS.num_sym.leftThumb,
+    ...LAYERS.num_sym.right.flat(), LAYERS.num_sym.rightOuter, ...LAYERS.num_sym.rightThumb,
+  ].filter(Boolean);
+  if (nsKeys.some(k => k.m === ch || k.s === ch)) return 'num_sym';
+  return currentLayer;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3104,7 +3184,6 @@ let lines = [];
 let lineIdx = 0;
 let currentText = '';
 let typed = '';
-let errors = {};
 let startTime = null;
 let timerInterval = null;
 let totalChars = 0;
@@ -3133,11 +3212,19 @@ function shuffleArray(arr) {
 }
 
 function resetSession() {
+  // Record partial session if the user practiced ≥1 minute before resetting
+  if (sessionActive && startTime && totalChars > 0) {
+    const elapsed = (Date.now() - startTime) / 1000;
+    if (elapsed >= 60) {
+      const wpm = Math.round((totalChars / 5) / (elapsed / 60));
+      const acc = Math.round(((totalChars - totalErrors) / totalChars) * 100);
+      recordSession(wpm, acc, elapsed / 60);
+    }
+  }
   clearInterval(timerInterval);
   lines       = shuffleArray(TEXTS[mode]);
   lineIdx     = 0;
   typed       = '';
-  errors      = {};
   totalChars  = 0;
   totalErrors = 0;
   startTime   = null;
@@ -3145,7 +3232,6 @@ function resetSession() {
   updateStats(0, 100, 0, 0);
   document.getElementById('progress-fill').style.width = '0%';
   loadLine();
-  updateErrorHeatmap();
   document.getElementById('typing-input').value = '';
   document.getElementById('typing-input').focus();
 }
@@ -3153,8 +3239,7 @@ function resetSession() {
 function loadLine() {
   currentText = lines[lineIdx % lines.length];
   typed = '';
-  renderText();
-  renderKeyboard(currentLayer, currentText[0]);
+  renderText(); // renderText calls switchLayer/renderKeyboard internally
 }
 
 function renderText() {
@@ -3168,9 +3253,18 @@ function renderText() {
     return `<span class="${cls}">${esc}</span>`;
   }).join('');
 
-  // highlight next key on keyboard
+  // highlight next key — works regardless of IME composing state
   if (typed.length < currentText.length) {
-    renderKeyboard(currentLayer, currentText[typed.length]);
+    let hasError = false;
+    for (let i = 0; i < typed.length; i++) {
+      if (typed[i] !== currentText[i]) { hasError = true; break; }
+    }
+    if (hasError) {
+      switchLayer('base', 'BSPC');
+    } else {
+      const nextCh = currentText[typed.length];
+      switchLayer(findCharLayer(nextCh), getHighlightKey(nextCh));
+    }
   }
 
   // progress
@@ -3192,15 +3286,7 @@ function handleInput(e) {
 
   typed = val;
 
-  for (let i = 0; i < val.length; i++) {
-    if (i < currentText.length && val[i] !== currentText[i]) {
-      const errKey = currentText[i];
-      errors[errKey] = (errors[errKey] || 0) + 1;
-    }
-  }
-
   renderText();
-  updateErrorHeatmap();
 
   if (val === currentText) {
     totalChars += currentText.length;
@@ -3248,6 +3334,7 @@ function nextLine() {
     document.getElementById('modal-wpm').textContent = wpm;
     document.getElementById('modal-acc').textContent = acc + '%';
     document.getElementById('finish-modal').classList.add('show');
+    recordSession(wpm, acc, elapsed / 60);
     lines = shuffleArray(TEXTS[mode]);
     lineIdx = 0;
     justAdvanced = false;
@@ -3281,22 +3368,139 @@ function updateStats(wpm, acc, time, errs) {
   document.getElementById('err-val').textContent  = errs;
 }
 
-function updateErrorHeatmap() {
-  const el = document.getElementById('error-list');
-  const sorted = Object.entries(errors).sort((a, b) => b[1] - a[1]);
-  if (sorted.length === 0) {
-    el.innerHTML = '<span style="color:var(--text2);font-size:0.85rem">아직 오류 없음</span>';
-    return;
+/* ═══════════════════════════════════════════════════════════
+   PRACTICE HISTORY (localStorage + GitHub-style calendar)
+   ─────────────────────────────────────────────────────────── */
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem('totem-history') || '{}'); }
+  catch { return {}; }
+}
+
+function saveHistory(data) {
+  localStorage.setItem('totem-history', JSON.stringify(data));
+}
+
+function recordSession(wpm, accuracy, minutes) {
+  if (minutes < 0.08) return; // ignore sessions under ~5 seconds
+  const history = loadHistory();
+  const today = new Date().toISOString().split('T')[0];
+  const prev = history[today] || { minutes: 0, sessions: 0, wpm: 0, accuracy: 0 };
+  const sessions = prev.sessions + 1;
+  history[today] = {
+    minutes: Math.round((prev.minutes + minutes) * 10) / 10,
+    sessions,
+    wpm: Math.round((prev.wpm * prev.sessions + wpm) / sessions),
+    accuracy: Math.round((prev.accuracy * prev.sessions + accuracy) / sessions),
+  };
+  saveHistory(history);
+  renderCalendar();
+}
+
+function exportHistory() {
+  const data = loadHistory();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'totem-history.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function getCalColor(minutes) {
+  if (!minutes || minutes <= 0) return 'var(--surface2)';
+  if (minutes <= 5)  return '#1a6640';
+  if (minutes <= 15) return '#27a85a';
+  return '#35d473';
+}
+
+function renderCalendar() {
+  const history = loadHistory();
+  const grid = document.getElementById('calendar-grid');
+  if (!grid) return;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Start the grid on the Sunday of the week 15 weeks before the current week
+  const thisSunday = new Date(today);
+  thisSunday.setDate(today.getDate() - today.getDay());
+  const firstSunday = new Date(thisSunday);
+  firstSunday.setDate(thisSunday.getDate() - 15 * 7);
+
+  // End on the Saturday of the current week
+  const lastSat = new Date(today);
+  lastSat.setDate(today.getDate() + (6 - today.getDay()));
+
+  // Build week columns (each column = 7 days Sun→Sat)
+  const weeks = [];
+  const cursor = new Date(firstSunday);
+  while (cursor <= lastSat) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const dateStr = cursor.toISOString().split('T')[0];
+      const isFuture = cursor > today;
+      week.push({ date: dateStr, data: history[dateStr] || null, future: isFuture });
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    weeks.push(week);
   }
-  const max = sorted[0][1];
-  el.innerHTML = sorted.slice(0, 20).map(([ch, cnt]) => {
-    const opacity = 0.3 + 0.7 * (cnt / max);
-    const disp = ch === ' ' ? '␣' : ch;
-    return `<div class="error-key">
-      <div class="error-key-char" style="opacity:${opacity}">${disp}</div>
-      <div class="error-key-count">×${cnt}</div>
-    </div>`;
-  }).join('');
+
+  grid.innerHTML = '';
+  weeks.forEach(week => {
+    const col = document.createElement('div');
+    col.className = 'calendar-col';
+    week.forEach(day => {
+      const cell = document.createElement('div');
+      cell.className = 'cal-cell';
+      if (day.future) {
+        cell.style.opacity = '0.2';
+      } else {
+        const mins = day.data ? day.data.minutes : 0;
+        cell.style.background = getCalColor(mins);
+        const tip = day.data
+          ? `${day.date} · ${day.data.minutes}분 · WPM ${day.data.wpm} · 정확도 ${day.data.accuracy}%`
+          : `${day.date} · 연습 없음`;
+        cell.setAttribute('data-tooltip', tip);
+      }
+      col.appendChild(cell);
+    });
+    grid.appendChild(col);
+  });
+
+  initCalendarTooltip();
+  updateWeekSummary(history, today);
+}
+
+function updateWeekSummary(history, today) {
+  let weekMins = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    if (history[key]) weekMins += history[key].minutes;
+  }
+  const el = document.getElementById('week-summary');
+  if (el) el.textContent = `이번 주 ${Math.round(weekMins)}분 연습`;
+}
+
+function initCalendarTooltip() {
+  const tooltip = document.getElementById('cal-tooltip');
+  if (!tooltip) return;
+  document.querySelectorAll('.cal-cell[data-tooltip]').forEach(cell => {
+    cell.addEventListener('mouseenter', () => {
+      tooltip.textContent = cell.getAttribute('data-tooltip');
+      tooltip.style.display = 'block';
+    });
+    cell.addEventListener('mousemove', e => {
+      tooltip.style.left = (e.clientX + 14) + 'px';
+      tooltip.style.top  = (e.clientY - 36) + 'px';
+    });
+    cell.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3328,20 +3532,20 @@ function switchMain(tab) {
     t.classList.toggle('active', ['practice','keymap','guide'][i] === tab);
   });
   const ps = document.getElementById('practice-section');
-  const es = document.getElementById('error-section');
+  const hs = document.getElementById('history-section');
 
   if (tab === 'practice') {
     ps.style.display = '';
-    es.style.display = '';
+    hs.style.display = '';
     renderKeyboard(currentLayer);
   } else if (tab === 'keymap') {
     ps.style.display = 'none';
-    es.style.display = 'none';
+    hs.style.display = 'none';
     document.querySelector('.kb-title').textContent = '전체 키맵 참조';
     renderKeyboard('base');
   } else if (tab === 'guide') {
     ps.style.display = 'none';
-    es.style.display = 'none';
+    hs.style.display = 'none';
     document.querySelector('.kb-title').textContent = '손가락 컬러 가이드';
     renderGuide();
   }
@@ -3367,7 +3571,7 @@ function renderGuide() {
     <p style="margin-top:10px;font-size:0.82rem;color:var(--text2);line-height:1.7">
       ⚡ 컬럼 스태거: 중지 열이 가장 높고 약지·소지·검지 순으로 낮아집니다. 손을 수직으로 내려찍으세요.<br>
       👍 썸키 hold: <b style="color:var(--accent2)">TAB</b> 홀드 → NAV 레이어 &nbsp;|&nbsp; <b style="color:var(--accent2)">ENT</b> 홀드 → NUM/SYM 레이어<br>
-      🔧 <b style="color:var(--accent2)">CAPS</b> 홀드 → DEVICE 레이어 (BT 프로필 전환, 볼륨 등)<br>
+      🔧 <b style="color:var(--accent2)">CAPS</b> 탭 → Caps Lock &nbsp;/&nbsp; 홀드 → Left Shift &nbsp;(DEVICE 레이어: NAV+SYM 동시 홀드)<br>
       📎 키 아래 작은 글자 = hold 동작 (⌥=Alt, ⌘=Cmd, ⌃=Ctrl, NAV/SYM/DEV=레이어)
     </p>`;
 }
@@ -3379,6 +3583,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderKeyboard('base');
   resetSession();
   initInput();
+  renderCalendar();
   document.getElementById('typing-input').focus();
 });
 </script>
