@@ -442,7 +442,7 @@
     <div class="history-title">📅 연습 기록 (최근 16주)</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span class="calendar-summary" id="week-summary">이번 주 0문장 완료</span>
-      <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="connectHistoryFile()">📂 파일 연결</button>
+      <button id="file-connect-btn" class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="connectHistoryFile()">📂 파일 연결</button>
       <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="exportHistory()">⬇ 내보내기</button>
     </div>
   </div>
@@ -3495,7 +3495,10 @@ async function connectHistoryFile() {
       };
     }
     saveHistory(merged);
+    await _writeToFileHandle();
     renderCalendar();
+    const btn = document.getElementById('file-connect-btn');
+    if (btn) { btn.textContent = '✅ ' + handle.name; btn.style.color = 'var(--green)'; }
   } catch (e) {
     if (e.name !== 'AbortError') console.error(e);
   }
@@ -3602,6 +3605,7 @@ function initCalendarTooltip() {
 function initInput() {
   const inp = document.getElementById('typing-input');
   inp.addEventListener('compositionstart', () => { composing = true; });
+  inp.addEventListener('compositionupdate', () => { renderText(); });
   inp.addEventListener('compositionend', (e) => {
     composing = false;
     if (justAdvanced) {
