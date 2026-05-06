@@ -163,6 +163,7 @@
   .key .main  { font-size: 0.82rem; color: var(--text); font-weight: 600; line-height: 1; }
   .key .hold  { font-size: 0.58rem; color: var(--accent2); position: absolute; bottom: 3px; left: 4px; line-height: 1; }
   .key .shift { font-size: 0.58rem; color: var(--text2); position: absolute; top: 3px; right: 4px; line-height: 1; }
+  .key .kor   { font-size: 0.55rem; color: #90b8ff; position: absolute; top: 3px; left: 4px; line-height: 1; }
 
   .key.thumb  { background: var(--key-thumb); width: 48px; }
   .key.mod    { background: var(--key-mod); }
@@ -442,7 +443,7 @@
     <div class="history-title">📅 연습 기록 (최근 16주)</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <span class="calendar-summary" id="week-summary">이번 주 0문장 완료</span>
-      <button id="file-connect-btn" class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="connectHistoryFile()">📂 파일 연결</button>
+      <button id="file-connect-btn" class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="connectHistoryFile()">📂 가져오기</button>
       <button class="btn btn-secondary" style="padding:4px 10px;font-size:0.75rem" onclick="exportHistory()">⬇ 내보내기</button>
     </div>
   </div>
@@ -458,7 +459,7 @@
       <div class="cal-legend-cell" style="background:#35d473"></div>
       <span>많음 (0 / 1-3 / 4-10 / 11+문장)</span>
     </div>
-    <span style="font-size:0.7rem;color:var(--text2)">localStorage 저장 · 📂 파일 연결 후 자동저장 (FSA API)</span>
+    <span style="font-size:0.7rem;color:var(--text2)">localStorage 자동저장 · 📂 가져오기: JSON 파일을 불러와 기록 병합 · ⬇ 내보내기: 파일 다운로드</span>
   </div>
 </div>
 <div id="cal-tooltip"></div>
@@ -505,9 +506,9 @@ const LAYERS = {
   base: {
     // left[row][col]  col0=pinky(Q) … col4=inner(T)
     left: [
-      [ {m:'Q'}, {m:'W'}, {m:'E'}, {m:'R'}, {m:'T'} ],
-      [ {m:'A'}, {m:'S'}, {m:'D'}, {m:'F'}, {m:'G'} ],
-      [ {m:'Z'}, {m:'X'}, {m:'C'}, {m:'V'}, {m:'B'} ],
+      [ {m:'Q',k:'ㅂ'}, {m:'W',k:'ㅈ'}, {m:'E',k:'ㄷ'}, {m:'R',k:'ㄱ'}, {m:'T',k:'ㅅ'} ],
+      [ {m:'A',k:'ㅁ'}, {m:'S',k:'ㄴ'}, {m:'D',k:'ㅇ'}, {m:'F',k:'ㄹ'}, {m:'G',k:'ㅎ'} ],
+      [ {m:'Z',k:'ㅋ'}, {m:'X',k:'ㅌ'}, {m:'C',k:'ㅊ'}, {m:'V',k:'ㅍ'}, {m:'B',k:'ㅠ'} ],
     ],
     // single extra outer key on bottom-left
     leftOuter: { m:'⇧', mod:true, outer:true },
@@ -519,9 +520,9 @@ const LAYERS = {
     ],
     // right[row][col]  col0=inner(Y) … col4=pinky(P)
     right: [
-      [ {m:'Y'}, {m:'U'}, {m:'I'}, {m:'O'}, {m:'P'} ],
-      [ {m:'H'}, {m:'J'}, {m:'K'}, {m:'L'}, {m:';', s:':'} ],
-      [ {m:'N'}, {m:'M'}, {m:',', h:'⌃'}, {m:'.', h:'⌥'}, {m:'/', h:'⌘'} ],
+      [ {m:'Y',k:'ㅛ'}, {m:'U',k:'ㅕ'}, {m:'I',k:'ㅑ'}, {m:'O',k:'ㅐ'}, {m:'P',k:'ㅔ'} ],
+      [ {m:'H',k:'ㅗ'}, {m:'J',k:'ㅓ'}, {m:'K',k:'ㅏ'}, {m:'L',k:'ㅣ'}, {m:';', s:':'} ],
+      [ {m:'N',k:'ㅜ'}, {m:'M',k:'ㅡ'}, {m:',', h:'⌃'}, {m:'.', h:'⌥'}, {m:'/', h:'⌘'} ],
     ],
     rightOuter: { m:"'", s:'"', outer:true },
     rightThumb: [
@@ -667,6 +668,7 @@ function makeKey(k, fingerClass, highlightKey, needsShift, holdThumb) {
 
   el.className = cls;
   el.innerHTML =
+    (k.k ? `<span class="kor">${k.k}</span>` : '') +
     (k.s ? `<span class="shift">${k.s}</span>` : '') +
     `<span class="main">${k.m || ''}</span>` +
     (k.h ? `<span class="hold">${k.h}</span>` : '');
@@ -764,16 +766,45 @@ function switchLayer(layer, highlightKey) {
   renderKeyboard(layer, highlightKey);
 }
 
+// 두벌식 역매핑: 한글 자모 → 물리 키 (소문자=Shift 불필요, 대문자=Shift 필요)
+const KO_DUBEOLSIK = {
+  'ㅂ':'q','ㅈ':'w','ㄷ':'e','ㄱ':'r','ㅅ':'t',
+  'ㅛ':'y','ㅕ':'u','ㅑ':'i','ㅐ':'o','ㅔ':'p',
+  'ㅁ':'a','ㄴ':'s','ㅇ':'d','ㄹ':'f','ㅎ':'g',
+  'ㅗ':'h','ㅓ':'j','ㅏ':'k','ㅣ':'l',
+  'ㅋ':'z','ㅌ':'x','ㅊ':'c','ㅍ':'v','ㅠ':'b','ㅜ':'n','ㅡ':'m',
+  'ㅃ':'Q','ㅉ':'W','ㄸ':'E','ㄲ':'R','ㅆ':'T','ㅒ':'O','ㅖ':'P',
+};
+
+// 한글 음절의 초성 자모를 반환 (ㄱ-ㅎ standalone jamo)
+function getFirstJamo(ch) {
+  const code = ch.charCodeAt(0);
+  if (code >= 0xAC00 && code <= 0xD7A3) {
+    const INITIALS = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+    return INITIALS[Math.floor((code - 0xAC00) / (21 * 28))];
+  }
+  return ch;
+}
+
 // Maps a raw character to the key label used in the keymap (e.g. space → 'SPC')
 function getHighlightKey(ch) {
   if (ch === ' ')  return 'SPC';
   if (ch === '\t') return 'TAB';
+  const code = ch.charCodeAt(0);
+  if ((code >= 0xAC00 && code <= 0xD7A3) || (code >= 0x3131 && code <= 0x3163)) {
+    const jamo = getFirstJamo(ch);
+    const physKey = KO_DUBEOLSIK[jamo];
+    if (physKey) return physKey;
+  }
   return ch;
 }
 
 // Returns which layer to show for highlighting a given character
 function findCharLayer(ch) {
   if (!ch || ch === ' ' || /^[a-zA-Z]$/.test(ch)) return 'base';
+  // 한글 음절(AC00-D7A3) 또는 자모(3131-3163) → base 레이어
+  const code = ch.charCodeAt(0);
+  if ((code >= 0xAC00 && code <= 0xD7A3) || (code >= 0x3131 && code <= 0x3163)) return 'base';
   // Check base layer (non-letters that exist there: ; , . / ' etc.)
   const baseKeys = [
     ...LAYERS.base.left.flat(), LAYERS.base.leftOuter, ...LAYERS.base.leftThumb,
@@ -3210,7 +3241,6 @@ let totalErrors = 0;
 let sessionActive = false;
 let composing = false;
 let justAdvanced = false;  // blocks stray IME events after line advance
-let historyFileHandle = null;
 
 function setMode(m) {
   mode = m;
@@ -3413,7 +3443,6 @@ function recordSentence() {
   history[today] = { ...prev, sentences: (prev.sentences || 0) + 1 };
   saveHistory(history);
   renderCalendar();
-  if (historyFileHandle) _writeToFileHandle();
 }
 
 function recordSession(wpm, accuracy) {
@@ -3430,53 +3459,40 @@ function recordSession(wpm, accuracy) {
   };
   saveHistory(history);
   renderCalendar();
-  if (historyFileHandle) _writeToFileHandle();
 }
 
-async function _writeToFileHandle() {
-  if (!historyFileHandle) return;
-  try {
-    const writable = await historyFileHandle.createWritable();
-    await writable.write(JSON.stringify(loadHistory(), null, 2));
-    await writable.close();
-  } catch (e) {
-    console.error('Auto-save failed:', e);
-    historyFileHandle = null;
-  }
-}
-
-async function exportHistory() {
+function exportHistory() {
   const json = JSON.stringify(loadHistory(), null, 2);
-  if ('showSaveFilePicker' in window) {
-    try {
-      historyFileHandle = await window.showSaveFilePicker({
-        suggestedName: 'history.json',
-        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-      });
-      await _writeToFileHandle();
-    } catch (e) {
-      if (e.name !== 'AbortError') console.error(e);
-    }
-  } else {
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'history.json'; a.click();
-    URL.revokeObjectURL(url);
-  }
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'totem-history.json'; a.click();
+  URL.revokeObjectURL(url);
 }
 
 async function connectHistoryFile() {
-  if (!('showOpenFilePicker' in window)) {
-    alert('이 브라우저는 File System Access API를 지원하지 않습니다. Chrome을 사용해주세요.');
-    return;
+  let file;
+  if ('showOpenFilePicker' in window) {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+      });
+      file = await handle.getFile();
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error(e);
+      return;
+    }
+  } else {
+    await new Promise(resolve => {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = '.json,application/json';
+      input.onchange = e => { file = e.target.files[0]; resolve(); };
+      input.oncancel = resolve;
+      input.click();
+    });
+    if (!file) return;
   }
   try {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-    });
-    historyFileHandle = handle;
-    const file = await handle.getFile();
     const incoming = JSON.parse(await file.text());
     const current = loadHistory();
     const merged = { ...incoming };
@@ -3495,12 +3511,15 @@ async function connectHistoryFile() {
       };
     }
     saveHistory(merged);
-    await _writeToFileHandle();
     renderCalendar();
     const btn = document.getElementById('file-connect-btn');
-    if (btn) { btn.textContent = '✅ ' + handle.name; btn.style.color = 'var(--green)'; }
+    if (btn) {
+      btn.textContent = '✅ 가져오기 완료'; btn.style.color = 'var(--green)';
+      setTimeout(() => { btn.textContent = '📂 가져오기'; btn.style.color = ''; }, 3000);
+    }
   } catch (e) {
-    if (e.name !== 'AbortError') console.error(e);
+    console.error('Import failed:', e);
+    alert('파일 형식이 올바르지 않습니다.');
   }
 }
 
