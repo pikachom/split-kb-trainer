@@ -3223,6 +3223,167 @@ const TEXTS = {
     "gh pr merge --squash --auto",
     "gh workflow run deploy.yml --ref main",
     "gh release create v1.0.0 --generate-notes",
+    // Rust
+    "fn main() -> Result<(), Box<dyn std::error::Error>> {",
+    "let mut v: Vec<i32> = Vec::new();",
+    "v.iter().filter(|&&x| x > 0).map(|&x| x * 2).collect::<Vec<_>>()",
+    "v.iter().fold(0, |acc, &x| acc + x)",
+    "let s: &str = \"hello\";",
+    "let s = String::from(\"hello\");",
+    "let s = format!(\"{}-{}\", prefix, suffix);",
+    "println!(\"{:?}\", value);",
+    "eprintln!(\"error: {}\", e);",
+    "#[derive(Debug, Clone, PartialEq, Eq, Hash)]",
+    "#[derive(Serialize, Deserialize)]",
+    "struct Config { host: String, port: u16, debug: bool }",
+    "enum MyResult<T, E> { Ok(T), Err(E) }",
+    "enum MyOption<T> { Some(T), None }",
+    "if let Some(x) = maybe { println!(\"{}\", x); }",
+    "let x = maybe.unwrap_or_default();",
+    "let x = maybe.ok_or(Error::Missing)?;",
+    "match status { 200 => Ok(()), 404 => Err(NotFound), _ => Err(Unknown) }",
+    "impl Display for MyError { fn fmt(&self, f: &mut Formatter) -> fmt::Result { write!(f, \"{}\", self.0) } }",
+    "use std::collections::{HashMap, HashSet, BTreeMap};",
+    "let mut map: HashMap<String, i32> = HashMap::new();",
+    "map.entry(key).or_insert(0);",
+    "*map.entry(key).or_insert(0) += 1;",
+    "let set: HashSet<_> = v.iter().collect();",
+    "use std::sync::{Arc, Mutex, RwLock};",
+    "let shared = Arc::new(Mutex::new(Vec::new()));",
+    "let guard = shared.lock().unwrap();",
+    "use std::thread;",
+    "thread::spawn(move || { /* ... */ }).join().unwrap();",
+    "#[tokio::main]",
+    "async fn fetch(url: &str) -> Result<String, reqwest::Error> {",
+    "let resp = reqwest::get(url).await?;",
+    "let body = resp.text().await?;",
+    "let content = fs::read_to_string(\"file.txt\")?;",
+    "fs::write(\"out.txt\", &data)?;",
+    "let re = Regex::new(r\"\\d+\").unwrap();",
+    "re.find_iter(text).map(|m| m.as_str()).collect::<Vec<_>>()",
+    "let v: Vec<i32> = (1..=10).filter(|x| x % 2 == 0).collect();",
+    "let sum: i32 = (1..=100).sum();",
+    "v.sort_by(|a, b| a.cmp(b));",
+    "v.dedup();",
+    "v.windows(3).map(|w| w.iter().sum::<i32>()).max()",
+    "v.chunks(10).for_each(|chunk| process(chunk));",
+    "use std::io::{self, BufRead};",
+    "for line in stdin.lock().lines() { let line = line?; }",
+    "#[test] fn it_works() { assert_eq!(add(2, 3), 5); }",
+    "cargo build --release",
+    "cargo test -- --nocapture",
+    "cargo clippy -- -D warnings",
+    "cargo fmt --check",
+    // Go
+    "package main",
+    "import (\"fmt\" \"os\" \"log\")",
+    "func greet(name string) string { return fmt.Sprintf(\"Hello, %s!\", name) }",
+    "if err != nil { return fmt.Errorf(\"failed: %w\", err) }",
+    "if err != nil { log.Fatalf(\"fatal: %v\", err) }",
+    "defer file.Close()",
+    "defer func() { if r := recover(); r != nil { log.Println(r) } }()",
+    "var wg sync.WaitGroup",
+    "wg.Add(1); go func() { defer wg.Done(); work() }(); wg.Wait()",
+    "ch := make(chan int, 100)",
+    "go func() { ch <- compute() }()",
+    "select { case v := <-ch: use(v); case <-ctx.Done(): return }",
+    "ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)",
+    "defer cancel()",
+    "mu := sync.Mutex{}; mu.Lock(); defer mu.Unlock()",
+    "once := sync.Once{}; once.Do(initialize)",
+    "m := make(map[string]int)",
+    "if v, ok := m[key]; ok { use(v) }",
+    "delete(m, key)",
+    "s := make([]int, 0, 10)",
+    "s = append(s, 1, 2, 3)",
+    "copy(dst, src)",
+    "for i, v := range slice { fmt.Println(i, v) }",
+    "for k, v := range myMap { fmt.Println(k, v) }",
+    "sort.Slice(s, func(i, j int) bool { return s[i] < s[j] })",
+    "strings.HasPrefix(s, \"http\")",
+    "strings.TrimSpace(s)",
+    "strings.Split(s, \",\")",
+    "strings.Join(parts, \", \")",
+    "fmt.Sprintf(\"%d-%02d-%02d\", y, m, d)",
+    "strconv.Atoi(s)",
+    "strconv.Itoa(n)",
+    "json.Marshal(v)",
+    "json.Unmarshal(data, &v)",
+    "type User struct { ID int `json:\"id\"` Name string `json:\"name\"` }",
+    "http.HandleFunc(\"/api\", handler)",
+    "http.ListenAndServe(\":8080\", nil)",
+    "r, err := http.Get(url)",
+    "body, err := io.ReadAll(r.Body); defer r.Body.Close()",
+    "os.Getenv(\"PORT\")",
+    "flag.StringVar(&host, \"host\", \"localhost\", \"server host\")",
+    "flag.Parse()",
+    "t.Run(\"case\", func(t *testing.T) { assert.Equal(t, want, got) })",
+    "go test ./... -race -cover",
+    // JS/TS 고급 패턴
+    "const signal = AbortController ? new AbortController() : null;",
+    "await fetch(url, { signal: controller.signal })",
+    "const observer = new IntersectionObserver(cb, { threshold: 0.1 });",
+    "const ro = new ResizeObserver(entries => entries.forEach(e => resize(e)));",
+    "const mo = new MutationObserver(muts => muts.forEach(processMut));",
+    "navigator.clipboard.writeText(text)",
+    "navigator.share({ title, url })",
+    "document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });",
+    "const mod = await import(`./plugins/${name}.js`);",
+    "const { data, error, isLoading } = useSWR(key, fetcher);",
+    "queryClient.invalidateQueries({ queryKey: ['users'] })",
+    "const form = useForm<FormData>({ resolver: zodResolver(schema) });",
+    "z.object({ email: z.string().email(), age: z.number().min(0) })",
+    "const store = create<State>((set) => ({ count: 0, inc: () => set(s => ({ count: s.count + 1 })) }));",
+    "immer((draft) => { draft.users.push(newUser); })",
+    "const prisma = new PrismaClient();",
+    "await prisma.user.findMany({ where: { active: true }, include: { posts: true } })",
+    "await prisma.$transaction([prisma.user.update(...), prisma.log.create(...)])",
+    // Python async / Pydantic
+    "import asyncio",
+    "async def main(): await asyncio.gather(task1(), task2())",
+    "asyncio.run(main())",
+    "async with aiohttp.ClientSession() as session:",
+    "    async with session.get(url) as r: data = await r.json()",
+    "async for item in aiter: process(item)",
+    "tasks = [asyncio.create_task(fetch(u)) for u in urls]",
+    "results = await asyncio.gather(*tasks, return_exceptions=True)",
+    "from pydantic import BaseModel, Field, validator",
+    "class User(BaseModel): id: int; name: str; email: str",
+    "user = User.model_validate(raw_dict)",
+    "user.model_dump(exclude_unset=True)",
+    "from fastapi import FastAPI, Depends, HTTPException",
+    "app = FastAPI()",
+    "@app.get('/users/{user_id}', response_model=User)",
+    "async def get_user(user_id: int, db: Session = Depends(get_db)):",
+    "raise HTTPException(status_code=404, detail='Not found')",
+    "@pytest.mark.parametrize('x,expected', [(1, 2), (2, 4)])",
+    "def test_double(x, expected): assert double(x) == expected",
+    "@pytest.fixture def client(): return TestClient(app)",
+    "with pytest.raises(ValueError, match='invalid'): parse('')",
+    "a = np.array([[1,2],[3,4]])",
+    "np.linalg.norm(v)",
+    "np.argmax(scores)",
+    "np.where(mask, a, b)",
+    "df = pd.read_csv('data.csv', parse_dates=['date'])",
+    "df.groupby('category').agg({'amount': 'sum', 'count': 'size'})",
+    "df[df['score'] > 90].sort_values('score', ascending=False).head(10)",
+    "df.pivot_table(values='sales', index='region', columns='quarter', aggfunc='sum')",
+    // SQL 고급 / 윈도우 함수
+    "SELECT *, LAG(amount) OVER (PARTITION BY user_id ORDER BY date) AS prev FROM txns;",
+    "SELECT *, SUM(amount) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS rolling7 FROM sales;",
+    "SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn FROM orders;",
+    "SELECT *, RANK() OVER (ORDER BY score DESC) AS rank FROM scores;",
+    "SELECT *, NTILE(4) OVER (ORDER BY salary) AS quartile FROM employees;",
+    "SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50 FROM requests;",
+    "SELECT date_trunc('hour', created_at), COUNT(*) FROM events GROUP BY 1 ORDER BY 1;",
+    "CREATE MATERIALIZED VIEW daily_stats AS SELECT date_trunc('day', ts) d, COUNT(*) n FROM events GROUP BY 1;",
+    "REFRESH MATERIALIZED VIEW CONCURRENTLY daily_stats;",
+    "INSERT INTO logs SELECT * FROM logs_staging ON CONFLICT (id) DO UPDATE SET body = EXCLUDED.body;",
+    "COPY users FROM '/tmp/users.csv' WITH (FORMAT csv, HEADER true);",
+    "SELECT * FROM generate_series('2024-01-01'::date, '2024-12-31'::date, '1 month') AS d;",
+    "WITH RECURSIVE cte AS (SELECT id, parent_id FROM cats WHERE parent_id IS NULL UNION ALL SELECT c.id, c.parent_id FROM cats c JOIN cte ON c.parent_id = cte.id) SELECT * FROM cte;",
+    "SELECT COALESCE(phone, email, 'unknown') FROM users;",
+    "EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 42;",
   ],
 };
 
@@ -3235,6 +3396,7 @@ let lineIdx = 0;
 let currentText = '';
 let typed = '';
 let startTime = null;
+let totalActiveTime = 0;  // accumulated active typing time in ms (excludes idle between sentences)
 let timerInterval = null;
 let totalChars = 0;
 let totalErrors = 0;
@@ -3262,21 +3424,23 @@ function shuffleArray(arr) {
 }
 
 function resetSession() {
-  // Record partial session if the user practiced ≥1 minute before resetting
-  if (sessionActive && startTime && totalChars > 0) {
-    const elapsed = (Date.now() - startTime) / 1000;
-    const wpm = Math.round((totalChars / 5) / (elapsed / 60));
+  // Record partial session if the user practiced before resetting
+  if (sessionActive && (totalActiveTime > 0 || startTime) && totalChars > 0) {
+    const sentElapsed = startTime ? (Date.now() - startTime) : 0;
+    const elapsed = (totalActiveTime + sentElapsed) / 1000;
+    const wpm = elapsed > 0 ? Math.round((totalChars / 5) / (elapsed / 60)) : 0;
     const acc = Math.round(((totalChars - totalErrors) / totalChars) * 100);
     recordSession(wpm, acc);
   }
   clearInterval(timerInterval);
-  lines       = shuffleArray(TEXTS[mode]);
-  lineIdx     = 0;
-  typed       = '';
-  totalChars  = 0;
-  totalErrors = 0;
-  startTime   = null;
-  sessionActive = false;
+  lines          = shuffleArray(TEXTS[mode]);
+  lineIdx        = 0;
+  typed          = '';
+  totalChars     = 0;
+  totalErrors    = 0;
+  totalActiveTime = 0;
+  startTime      = null;
+  sessionActive  = false;
   updateStats(0, 100, 0, 0);
   document.getElementById('progress-fill').style.width = '0%';
   loadLine();
@@ -3326,10 +3490,12 @@ function handleInput(e) {
   const inp = e.target;
   const val = inp.value;
 
-  if (!sessionActive && val.length > 0) {
-    sessionActive = true;
-    startTime = Date.now();
-    timerInterval = setInterval(updateTimer, 500);
+  if (val.length > 0) {
+    if (!sessionActive) {
+      sessionActive = true;
+      timerInterval = setInterval(updateTimer, 500);
+    }
+    if (!startTime) startTime = Date.now();
   }
 
   typed = val;
@@ -3371,6 +3537,8 @@ function handleKeydown(e) {
 function nextLine() {
   // Set guard BEFORE clearing so any stray compositionend/input is blocked
   justAdvanced = true;
+  // Accumulate active time for the sentence just completed, then reset per-sentence timer
+  if (startTime) { totalActiveTime += Date.now() - startTime; startTime = null; }
   lineIdx++;
   typed = '';
   const inp = document.getElementById('typing-input');
@@ -3378,7 +3546,7 @@ function nextLine() {
 
   if (lineIdx >= lines.length) {
     clearInterval(timerInterval);
-    const elapsed = startTime ? (Date.now() - startTime) / 1000 : 1;
+    const elapsed = totalActiveTime > 0 ? totalActiveTime / 1000 : 1;
     const wpm = Math.round((totalChars / 5) / (elapsed / 60));
     const acc = totalChars > 0 ? Math.round(((totalChars - totalErrors) / totalChars) * 100) : 100;
     document.getElementById('modal-wpm').textContent = wpm;
@@ -3404,11 +3572,12 @@ function closeModal() {
 }
 
 function updateTimer() {
-  if (!startTime) return;
-  const elapsed = (Date.now() - startTime) / 1000;
-  const wpm = totalChars > 0 ? Math.round((totalChars / 5) / (elapsed / 60)) : 0;
+  if (!sessionActive) return;
+  const sentElapsed = startTime ? (Date.now() - startTime) / 1000 : 0;
+  const totalElapsed = totalActiveTime / 1000 + sentElapsed;
+  const wpm = totalChars > 0 && totalElapsed > 0 ? Math.round((totalChars / 5) / (totalElapsed / 60)) : 0;
   const acc = totalChars > 0 ? Math.round(((totalChars - totalErrors) / totalChars) * 100) : 100;
-  updateStats(wpm, acc, Math.round(elapsed), totalErrors);
+  updateStats(wpm, acc, Math.round(totalElapsed), totalErrors);
 }
 
 function updateStats(wpm, acc, time, errs) {
