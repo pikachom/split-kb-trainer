@@ -3424,6 +3424,7 @@ let currentText = '';
 let typed = '';
 let startTime = null;
 let timerInterval = null;
+let totalTime = 0;
 let totalChars = 0;
 let totalErrors = 0;
 let sessionActive = false;
@@ -3451,8 +3452,8 @@ function shuffleArray(arr) {
 
 function resetSession() {
   // Record partial session if the user practiced ≥1 minute before resetting
-  if (sessionActive && startTime && totalChars > 0) {
-    const elapsed = (Date.now() - startTime) / 1000;
+  if (sessionActive && (totalTime > 0 || startTime) && totalChars > 0) {
+    const elapsed = totalTime + (startTime ? (Date.now() - startTime) / 1000 : 0);
     const wpm = Math.round((totalChars / 5) / (elapsed / 60));
     const acc = Math.round(((totalChars - totalErrors) / totalChars) * 100);
     recordSession(wpm, acc);
@@ -3463,6 +3464,7 @@ function resetSession() {
   typed       = '';
   totalChars  = 0;
   totalErrors = 0;
+  totalTime   = 0;
   startTime   = null;
   sessionActive = false;
   updateStats(0, 100, 0, 0);
@@ -3569,9 +3571,15 @@ function nextLine() {
   const inp = document.getElementById('typing-input');
   inp.value = '';
 
+  if (startTime) totalTime += (Date.now() - startTime) / 1000;
+  clearInterval(timerInterval);
+  timerInterval = null;
+  startTime = null;
+  sessionActive = false;
+  updateStats(0, 100, 0, totalErrors);
+
   if (lineIdx >= lines.length) {
-    clearInterval(timerInterval);
-    const elapsed = startTime ? (Date.now() - startTime) / 1000 : 1;
+    const elapsed = totalTime || 1;
     const wpm = Math.round((totalChars / 5) / (elapsed / 60));
     const acc = totalChars > 0 ? Math.round(((totalChars - totalErrors) / totalChars) * 100) : 100;
     document.getElementById('modal-wpm').textContent = wpm;
@@ -3580,6 +3588,7 @@ function nextLine() {
     recordSession(wpm, acc);
     lines = shuffleArray(TEXTS[mode]);
     lineIdx = 0;
+    totalTime = 0;
     justAdvanced = false;
     return;
   }
