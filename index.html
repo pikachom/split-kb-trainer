@@ -561,7 +561,7 @@ const LAYERS = {
   // ── Layer 2: num_sym (hold ENT on right thumb) ───────────
   num_sym: {
     left: [
-      [ {m:'1'}, {m:'2'}, {m:'3'}, {m:'4'},        {m:'5'} ],
+      [ {m:'1', s:'!'}, {m:'2', s:'@'}, {m:'3', s:'#'}, {m:'4', s:'$'}, {m:'5', s:'%'} ],
       [ {m:'`', s:'~'},  {m:''},  {m:''},  {m:'-', s:'_'},  {m:'=', s:'+'} ],
       [ {m:''},  {m:''},  {m:''},  {m:''},           {m:''} ],
     ],
@@ -572,7 +572,7 @@ const LAYERS = {
       { m:'▼',   mod:true, thumb:true },
     ],
     right: [
-      [ {m:'6'}, {m:'7'}, {m:'8'}, {m:'9'},          {m:'0'} ],
+      [ {m:'6', s:'^'}, {m:'7', s:'&'}, {m:'8', s:'*'}, {m:'9', s:'('}, {m:'0', s:')'} ],
       [ {m:'[', s:'{'}, {m:']', s:'}'}, {m:''}, {m:''}, {m:'\\', s:'|'} ],
       [ {m:'('}, {m:')'}, {m:',', s:'<'}, {m:'.', s:'>'}, {m:'/'} ],
     ],
@@ -3968,7 +3968,9 @@ function nextLine() {
   timerInterval = null;
   startTime = null;
   sessionActive = false;
-  updateStats(0, 100, 0, totalErrors);
+  const interWpm = totalTime > 0 ? Math.round(totalWords / (totalTime / 60000)) : 0;
+  const interAcc = totalChars > 0 ? Math.round(((totalChars - totalErrors) / totalChars) * 100) : 100;
+  updateStats(interWpm, interAcc, Math.round(totalTime / 1000), totalErrors);
 
   if (lineIdx >= lines.length) {
     const wpm = totalTime > 0 ? Math.round(totalWords / (totalTime / 60000)) : 0;
